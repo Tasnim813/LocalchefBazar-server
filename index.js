@@ -58,12 +58,59 @@ async function run() {
 
     // await client.connect();
     const db = client.db('Local_db')
+    const favoriteCollection=db.collection('favorite')
     const mealCollections = db.collection('meals')
     const orderCollection = db.collection('order')
     const paymentCollection = db.collection('payment')
     const usersCollection=db.collection('user')
     const mealCollection = db.collection('meal')
 
+  //  favorite
+app.post('/favorite', async (req, res) => {
+  try {
+    const favoriteData = req.body;
+
+    // Check if this meal already exists for this user
+    const existing = await favoriteCollection.findOne({
+      email: favoriteData.email,
+      mealId: favoriteData.mealId
+    });
+
+    if (existing) {
+      return res.status(400).send({ msg: 'Meal already in favorites' });
+    }
+
+    // Insert new favorite
+    const result = await favoriteCollection.insertOne(favoriteData);
+    res.send({ msg: 'Favorite added successfully', data: result });
+    
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ error: 'Failed to add favorite' });
+  }
+});
+    app.get('/favorite/:email',async(req,res)=>{
+      const email=req.params.email;
+      const result= await favoriteCollection.find({email}).toArray()
+      res.send(result)
+    })
+
+    app.delete('/favorite/:id',async(req,res)=>{
+       try {
+    const id = req.params.id; 
+    const result = await favoriteCollection.deleteOne({ _id: new ObjectId(id) });
+
+    if (result.deletedCount > 0) {
+      res.send({ msg: 'Favorite meal deleted successfully' });
+    } else {
+      res.status(404).send({ msg: 'Meal not found' });
+    }
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ error: 'Failed to delete favorite' });
+  }
+    })
     // user api
     app.post('/user',async(req,res)=>{
   const userData=req.body;
