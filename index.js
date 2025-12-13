@@ -64,6 +64,38 @@ async function run() {
     const paymentCollection = db.collection('payment')
     const usersCollection=db.collection('user')
     const mealCollection = db.collection('meal')
+     const reviewCollection = db.collection("reviews");
+
+     app.post("/reviews", async (req, res) => {
+  const review = req.body;
+
+  review.foodId = new ObjectId(review.foodId); // important
+  review.date = new Date(); // auto date
+
+  const result = await reviewCollection.insertOne(review);
+  res.send(result);
+});
+
+
+app.get("/reviews/:foodId", async (req, res) => {
+  const foodId = req.params.foodId;
+
+  const result = await reviewCollection
+    .find({ foodId: new ObjectId(foodId) })
+    .toArray();
+
+  res.send(result);
+});
+
+app.get('/my-review/:email', async (req, res) => {
+  const email = req.params.email;
+
+  const result = await reviewCollection
+    .find({ reviewerEmail: email })
+    .toArray();
+
+  res.send(result);
+});
 
   //  favorite
 app.post('/favorite', async (req, res) => {
@@ -164,6 +196,38 @@ app.post('/favorite', async (req, res) => {
       const result = await orderCollection.find({ userEmail: email }).toArray()
       res.send(result)
     })
+// order request page api
+// Chef order requests
+app.get('/chef-orders/:chefId', async (req, res) => {
+  const chefId = req.params.chefId;
+
+  const result = await orderCollection
+    .find({ chefId })
+    .sort({ orderTime: -1 })
+    .toArray();
+
+  res.send(result);
+});
+
+
+app.patch('/order-status/:id', async (req, res) => {
+  const id = req.params.id;
+  const { orderStatus } = req.body;
+
+  const allowedStatus = ['pending', 'accepted', 'delivered', 'cancelled'];
+  if (!allowedStatus.includes(orderStatus)) {
+    return res.status(400).send({ message: 'Invalid status' });
+  }
+
+  const result = await orderCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: { orderStatus } }
+  );
+
+  res.send(result);
+});
+
+
 
     // meals here
     app.post('/meals', async (req, res) => {
