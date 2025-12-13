@@ -66,6 +66,108 @@ async function run() {
     const mealCollection = db.collection('meal')
      const reviewCollection = db.collection("reviews");
 
+         // user api
+    app.post('/user',async(req,res)=>{
+  const userData=req.body;
+  userData.created_at= new Date().toISOString()
+  userData.last_loggedIn= new Date().toISOString()
+  userData.role='customer'
+  userData.status='active'
+   
+  const query={
+    email: userData.email
+
+  }
+  const alreadyExist=await usersCollection.findOne(query)
+  console.log('User Already Exist ---->',!!alreadyExist)
+  if(alreadyExist){
+    console.log("update user Info")
+    const   result= await usersCollection.updateOne(query,{
+      $set:{
+        last_loggedIn: new Date().toISOString(),
+      },
+    })
+    return res.send(result)
+  }
+  console.log('Saving new user')
+  const result=await usersCollection.insertOne(userData)
+  
+  res.send(result)
+})
+app.get('/users', async (req, res) => {
+  try {
+    const users = await usersCollection.find().toArray();
+    res.send(users);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ error: "Failed to fetch users" });
+  }
+});
+// ai
+app.get('/users', async (req, res) => {
+  try {
+    const users = await usersCollection.find().toArray();
+    res.send(users);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ error: "Failed to fetch users" });
+  }
+});
+// Mark user as fraud
+app.patch('/users/fraud/:id', async (req, res) => {
+  const id = req.params.id;
+  try {
+    const user = await usersCollection.findOne({ _id: new ObjectId(id) });
+    if (!user) return res.status(404).send({ message: "User not found" });
+
+    if (user.role === "admin") {
+      return res.status(403).send({ message: "Cannot mark admin as fraud" });
+    }
+
+    if (user.status === "fraud") {
+      return res.status(400).send({ message: "User is already fraud" });
+    }
+
+    await usersCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { status: "fraud" } }
+    );
+
+    res.send({ message: "User marked as fraud successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ error: "Something went wrong" });
+  }
+});
+const checkFraudCustomer = async (req, res, next) => {
+  const email = req.body.userEmail;
+  const user = await usersCollection.findOne({ email });
+  if (user?.status === "fraud" && user.role === "user") {
+    return res.status(403).send({ message: "Fraud user cannot place order" });
+  }
+  next();
+};const checkFraudChef = async (req, res, next) => {
+  const email = req.body.userEmail;
+  const user = await usersCollection.findOne({ email });
+  if (user?.status === "fraud" && user.role === "chef") {
+    return res.status(403).send({ message: "Fraud chef cannot create meal" });
+  }
+  next();
+};
+app.post('/order', checkFraudCustomer, async (req, res) => {
+  const orderData = req.body;
+  const result = await orderCollection.insertOne(orderData);
+  res.send(orderData);
+});
+
+app.post('/meals', checkFraudChef, async (req, res) => {
+  const mealData = req.body;
+  const result = await mealCollections.insertOne(mealData);
+  res.send(result);
+});
+
+    // review api
+
      app.post("/reviews", async (req, res) => {
   const review = req.body;
 
@@ -121,6 +223,7 @@ app.post('/favorite', async (req, res) => {
     res.status(500).send({ error: 'Failed to add favorite' });
   }
 });
+
     app.get('/favorite/:email',async(req,res)=>{
       const email=req.params.email;
       const result= await favoriteCollection.find({email}).toArray()
@@ -143,34 +246,7 @@ app.post('/favorite', async (req, res) => {
     res.status(500).send({ error: 'Failed to delete favorite' });
   }
     })
-    // user api
-    app.post('/user',async(req,res)=>{
-  const userData=req.body;
-  userData.created_at= new Date().toISOString()
-  userData.last_loggedIn= new Date().toISOString()
-  userData.role='customer'
-  userData.status='active'
-   
-  const query={
-    email: userData.email
 
-  }
-  const alreadyExist=await usersCollection.findOne(query)
-  console.log('User Already Exist ---->',!!alreadyExist)
-  if(alreadyExist){
-    console.log("update user Info")
-    const   result= await usersCollection.updateOne(query,{
-      $set:{
-        last_loggedIn: new Date().toISOString(),
-      },
-    })
-    return res.send(result)
-  }
-  console.log('Saving new user')
-  const result=await usersCollection.insertOne(userData)
-  
-  res.send(result)
-})
 
 
     // payment api 
@@ -197,7 +273,7 @@ app.post('/favorite', async (req, res) => {
       res.send(result)
     })
 // order request page api
-// Chef order requests
+
 app.get('/chef-orders/:chefId', async (req, res) => {
   const chefId = req.params.chefId;
 
@@ -245,6 +321,10 @@ app.patch('/order-status/:id', async (req, res) => {
       const result = await mealCollections.findOne({ _id: new ObjectId(id) })
       res.send(result)
     })
+ 
+    // Ai
+
+   
 
     // meal here
     app.get('/meal', async (req, res) => {
@@ -312,6 +392,7 @@ app.patch('/order-status/:id', async (req, res) => {
     //   }
     //   res.send(order)
     // })
+
 app.post('/payment-success', async (req, res) => {
   try {
     const { sessionId } = req.body;
@@ -394,6 +475,7 @@ app.post('/payment-success', async (req, res) => {
     res.status(500).send({ error: "Something went wrong" });
   }
 });
+
 
 
 
