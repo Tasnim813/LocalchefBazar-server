@@ -431,6 +431,22 @@ app.delete('/meals/:id', verifyJWT, async (req, res) => {
   res.send(result)
 })
 
+app.patch('/meals/:id', verifyJWT, async (req, res) => {
+  const id = req.params.id
+  const updatedData = req.body
+  try {
+    const result = await mealCollections.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updatedData }
+    )
+    res.send(result)
+  } catch (err) {
+    console.error(err)
+    res.status(500).send({ message: 'Failed to update meal' })
+  }
+})
+
+
     // meal here
     app.get('/meal', async (req, res) => {
       const result = await mealCollection.find().toArray()
