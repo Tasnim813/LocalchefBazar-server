@@ -67,83 +67,111 @@ async function run() {
      const reviewCollection = db.collection("reviews");
      const roleRequestsCollection = db.collection("roleRequests");
 
-  app.post('/role-requests', async (req, res) => {
-  try {
-    const request = req.body;
 
-    // ensure required fields
-    if (!request.userName || !request.userEmail || !request.requestType) {
-      return res.status(400).send({ error: "Missing required fields" });
+// POST role request (Be a Chef / Be an Admin)
+app.post('/role-requests', verifyJWT, async (req, res) => {
+  try {
+    const { userName, userEmail, requestType } = req.body
+    if (!userName || !userEmail || !requestType) {
+      return res.status(400).send({ error: 'All fields are required' })
     }
 
-    request.requestStatus = "pending";
-    request.requestTime = new Date().toISOString();
-
-    const result = await roleRequestsCollection.insertOne(request);
-    res.send({ message: "Request sent successfully", data: result });
-  } catch (err) {
-    console.error("Role Request Error:", err);
-    res.status(500).send({ error: "Failed to send request" });
-  }
-});
-
-// Get all role requests
-app.get('/role-requests', async (req, res) => {
-  try {
-    const requests = await roleRequestsCollection.find().sort({ requestTime: -1 }).toArray();
-    res.send(requests);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ message: 'Failed to fetch role requests' });
-  }
-});
-
-// Approve a request
-app.patch('/role-requests/approve/:id', async (req, res) => {
-  try {
-    const requestId = req.params.id;
-    const request = await roleRequestsCollection.findOne({ _id: new ObjectId(requestId) });
-    if (!request) return res.status(404).send({ message: "Request not found" });
-
-    // Update user role
-    const userQuery = { email: request.userEmail };
-    const updateData = {};
-
-    if (request.requestType === "chef") {
-      const chefId = "chef-" + Math.floor(1000 + Math.random() * 9000);
-      updateData.role = "chef";
-      updateData.chefId = chefId;
-    } else if (request.requestType === "admin") {
-      updateData.role = "admin";
+    const newRequest = {
+      userName,
+      userEmail,
+      requestType,              // chef / admin
+      requestStatus: 'pending', // default
+      requestTime: new Date().toISOString()
     }
 
-    await usersCollection.updateOne(userQuery, { $set: updateData });
-    await roleRequestsCollection.updateOne({ _id: new ObjectId(requestId) }, { $set: { requestStatus: "approved" } });
-
-    res.send({ message: "Request approved successfully" });
+    const result = await roleRequestsCollection.insertOne(newRequest)
+    res.send({ message: 'Your request has been sent to the admin', requestId: result.insertedId })
   } catch (err) {
-    console.error(err);
-    res.status(500).send({ message: "Failed to approve request" });
+    console.error(err)
+    res.status(500).send({ error: 'Failed to send role request' })
   }
-});
+})
 
-// Reject a request
-app.patch('/role-requests/reject/:id', async (req, res) => {
+
+// GET all role requests
+app.get('/role-requests', verifyJWT, async (req, res) => {
   try {
-    const requestId = req.params.id;
-    await roleRequestsCollection.updateOne({ _id: new ObjectId(requestId) }, { $set: { requestStatus: "rejected" } });
-    res.send({ message: "Request rejected successfully" });
+    const requests = await roleRequestsCollection.find().sort({ requestTime: -1 }).toArray()
+    res.send(requests)
   } catch (err) {
-    console.error(err);
-    res.status(500).send({ message: "Failed to reject request" });
+    console.error(err)
+    res.status(500).send({ error: 'Failed to fetch requests' })
   }
-});
+})
+
+
+// PATCH approve request
+app.patch('/role-requests/approve/:id', verifyJWT, async (req, res) => {
+  try {
+    const requestId = req.params.id
+    const request = await roleRequestsCollection.findOne({ _id: new ObjectId(requestId) })
+    if (!request) return res.status(404).send({ error: 'Request not found' })
+
+    const updateData = {}
+    if (request.requestType === 'chef') {
+      const chefId = 'chef-' + Math.floor(1000 + Math.random() * 9000)
+      updateData.role = 'chef'
+      updateData.chefId = chefId
+    } else if (request.requestType === 'admin') {
+      updateData.role = 'admin'
+    }
+
+    await usersCollection.updateOne({ email: request.userEmail }, { $set: updateData })
+    await roleRequestsCollection.updateOne({ _id: new ObjectId(requestId) }, { $set: { requestStatus: 'approved' } })
+    res.send({ message: 'Request approved successfully' })
+  } catch (err) {
+    console.error(err)
+    res.status(500).send({ error: 'Failed to approve request' })
+  }
+})
+
+// PATCH reject request
+app.patch('/role-requests/reject/:id', verifyJWT, async (req, res) => {
+  try {
+    const requestId = req.params.id
+    await roleRequestsCollection.updateOne({ _id: new ObjectId(requestId) }, { $set: { requestStatus: 'rejected' } })
+    res.send({ message: 'Request rejected successfully' })
+  } catch (err) {
+    console.error(err)
+    res.status(500).send({ error: 'Failed to reject request' })
+  }
+})
+
+// PATCH update user status (Make Fraud)
+app.patch('/users/status-update/:email', verifyJWT, async (req, res) => {
+  try {
+    const email = req.params.email
+    const { status } = req.body
+    const result = await usersCollection.updateOne({ email }, { $set: { status } })
+    res.send({ message: 'User status updated', result })
+  } catch (err) {
+    console.error(err)
+    res.status(500).send({ error: 'Failed to update status' })
+  }
+})
 
 
 
 
-         // user api
-    app.post('/users',async(req,res)=>{
+
+
+app.get('/users', verifyJWT, async (req, res) => {
+  try {
+    const users = await usersCollection.find().toArray()
+    res.send(users)
+  } catch (err) {
+    res.status(500).send({ error: 'Failed to fetch users' })
+  }
+})
+
+
+   //  user api
+         app.post('/users',async(req,res)=>{
   const userData=req.body;
   userData.created_at= new Date().toISOString()
   userData.last_loggedIn= new Date().toISOString()
@@ -171,91 +199,11 @@ app.patch('/role-requests/reject/:id', async (req, res) => {
   res.send(result)
 })
 
-
-app.get('/users', async (req, res) => {
-  try {
-    const users = await usersCollection.find().toArray();
-    res.send(users);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ error: "Failed to fetch users" });
-  }
-});
-
-// get user role
-app.get('/users/role/:email',async(req,res)=>{
-  const email=req.params.email;
-  const result=await usersCollection.findOne({email})
-  res.send({role: result?.role})
+app.get('/users/:email', async (req, res) => {
+  const email = req.params.email
+  const result = await usersCollection.findOne({ email: email }) // ba shorthand: { email }
+  res.send(result)
 })
-// using api  here
-
-app.get('/users', async (req, res) => {
-  try {
-    const email = req.query.email; // check if query param exists
-    const query = email ? { email } : {};
-    const users = await usersCollection.find(query).toArray();
-    res.send(users);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ error: "Failed to fetch users" });
-  }
-});
-
-// Mark user as fraud
-app.patch('/users/fraud/:id', async (req, res) => {
-  const id = req.params.id;
-  try {
-    const user = await usersCollection.findOne({ _id: new ObjectId(id) });
-    if (!user) return res.status(404).send({ message: "User not found" });
-
-    if (user.role === "admin") {
-      return res.status(403).send({ message: "Cannot mark admin as fraud" });
-    }
-
-    if (user.status === "fraud") {
-      return res.status(400).send({ message: "User is already fraud" });
-    }
-
-    await usersCollection.updateOne(
-      { _id: new ObjectId(id) },
-      { $set: { status: "fraud" } }
-    );
-
-    res.send({ message: "User marked as fraud successfully" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ error: "Something went wrong" });
-  }
-});
-const checkFraudCustomer = async (req, res, next) => {
-  const email = req.body.userEmail;
-  const user = await usersCollection.findOne({ email });
-  if (user?.status === "fraud" && user.role === "user") {
-    return res.status(403).send({ message: "Fraud user cannot place order" });
-  }
-  next();
-};
-
-const checkFraudChef = async (req, res, next) => {
-  const email = req.body.userEmail;
-  const user = await usersCollection.findOne({ email });
-  if (user?.status === "fraud" && user.role === "chef") {
-    return res.status(403).send({ message: "Fraud chef cannot create meal" });
-  }
-  next();
-};
-app.post('/order', checkFraudCustomer, async (req, res) => {
-  const orderData = req.body;
-  const result = await orderCollection.insertOne(orderData);
-  res.send(orderData);
-});
-
-app.post('/meals', checkFraudChef, async (req, res) => {
-  const mealData = req.body;
-  const result = await mealCollections.insertOne(mealData);
-  res.send(result);
-});
 
     // review api
 
