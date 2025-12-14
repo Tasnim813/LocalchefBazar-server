@@ -62,12 +62,88 @@ async function run() {
     const mealCollections = db.collection('meals')
     const orderCollection = db.collection('order')
     const paymentCollection = db.collection('payment')
-    const usersCollection=db.collection('user')
+    const usersCollection=db.collection('users')
     const mealCollection = db.collection('meal')
      const reviewCollection = db.collection("reviews");
+     const roleRequestsCollection = db.collection("roleRequests");
+
+  app.post('/role-requests', async (req, res) => {
+  try {
+    const request = req.body;
+
+    // ensure required fields
+    if (!request.userName || !request.userEmail || !request.requestType) {
+      return res.status(400).send({ error: "Missing required fields" });
+    }
+
+    request.requestStatus = "pending";
+    request.requestTime = new Date().toISOString();
+
+    const result = await roleRequestsCollection.insertOne(request);
+    res.send({ message: "Request sent successfully", data: result });
+  } catch (err) {
+    console.error("Role Request Error:", err);
+    res.status(500).send({ error: "Failed to send request" });
+  }
+});
+
+// Get all role requests
+app.get('/role-requests', async (req, res) => {
+  try {
+    const requests = await roleRequestsCollection.find().sort({ requestTime: -1 }).toArray();
+    res.send(requests);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: 'Failed to fetch role requests' });
+  }
+});
+
+// Approve a request
+app.patch('/role-requests/approve/:id', async (req, res) => {
+  try {
+    const requestId = req.params.id;
+    const request = await roleRequestsCollection.findOne({ _id: new ObjectId(requestId) });
+    if (!request) return res.status(404).send({ message: "Request not found" });
+
+    // Update user role
+    const userQuery = { email: request.userEmail };
+    const updateData = {};
+
+    if (request.requestType === "chef") {
+      const chefId = "chef-" + Math.floor(1000 + Math.random() * 9000);
+      updateData.role = "chef";
+      updateData.chefId = chefId;
+    } else if (request.requestType === "admin") {
+      updateData.role = "admin";
+    }
+
+    await usersCollection.updateOne(userQuery, { $set: updateData });
+    await roleRequestsCollection.updateOne({ _id: new ObjectId(requestId) }, { $set: { requestStatus: "approved" } });
+
+    res.send({ message: "Request approved successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: "Failed to approve request" });
+  }
+});
+
+// Reject a request
+app.patch('/role-requests/reject/:id', async (req, res) => {
+  try {
+    const requestId = req.params.id;
+    await roleRequestsCollection.updateOne({ _id: new ObjectId(requestId) }, { $set: { requestStatus: "rejected" } });
+    res.send({ message: "Request rejected successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: "Failed to reject request" });
+  }
+});
+
+
+
 
          // user api
-    app.post('/user',async(req,res)=>{
+    app.post('/users',async(req,res)=>{
   const userData=req.body;
   userData.created_at= new Date().toISOString()
   userData.last_loggedIn= new Date().toISOString()
@@ -103,16 +179,20 @@ app.get('/users', async (req, res) => {
     res.status(500).send({ error: "Failed to fetch users" });
   }
 });
-// ai
+// using api  here
+
 app.get('/users', async (req, res) => {
   try {
-    const users = await usersCollection.find().toArray();
+    const email = req.query.email; // check if query param exists
+    const query = email ? { email } : {};
+    const users = await usersCollection.find(query).toArray();
     res.send(users);
   } catch (err) {
     console.error(err);
     res.status(500).send({ error: "Failed to fetch users" });
   }
 });
+
 // Mark user as fraud
 app.patch('/users/fraud/:id', async (req, res) => {
   const id = req.params.id;
@@ -146,7 +226,9 @@ const checkFraudCustomer = async (req, res, next) => {
     return res.status(403).send({ message: "Fraud user cannot place order" });
   }
   next();
-};const checkFraudChef = async (req, res, next) => {
+};
+
+const checkFraudChef = async (req, res, next) => {
   const email = req.body.userEmail;
   const user = await usersCollection.findOne({ email });
   if (user?.status === "fraud" && user.role === "chef") {
@@ -321,10 +403,33 @@ app.patch('/order-status/:id', async (req, res) => {
       const result = await mealCollections.findOne({ _id: new ObjectId(id) })
       res.send(result)
     })
- 
-    // Ai
 
-   
+ app.get('/my-meals/:email', verifyJWT, async (req, res) => {
+  try {
+    const email = req.params.email;
+
+    if (req.tokenEmail !== email) {
+      return res.status(403).send({ message: 'Forbidden access' });
+    }
+
+    const result = await mealCollections
+      .find({ userEmail: email })
+      .toArray();
+
+    res.send(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: 'Internal Server Error' });
+  }
+});
+
+app.delete('/meals/:id', verifyJWT, async (req, res) => {
+  const id = req.params.id
+  const result = await mealCollections.deleteOne({
+    _id: new ObjectId(id),
+  })
+  res.send(result)
+})
 
     // meal here
     app.get('/meal', async (req, res) => {
