@@ -170,6 +170,8 @@ app.patch('/role-requests/reject/:id', async (req, res) => {
   
   res.send(result)
 })
+
+
 app.get('/users', async (req, res) => {
   try {
     const users = await usersCollection.find().toArray();
@@ -179,6 +181,13 @@ app.get('/users', async (req, res) => {
     res.status(500).send({ error: "Failed to fetch users" });
   }
 });
+
+// get user role
+app.get('/users/role/:email',async(req,res)=>{
+  const email=req.params.email;
+  const result=await usersCollection.findOne({email})
+  res.send({role: result?.role})
+})
 // using api  here
 
 app.get('/users', async (req, res) => {
@@ -344,12 +353,14 @@ app.post('/favorite', async (req, res) => {
     })
 
     // order here
-    app.post('/order', async (req, res) => {
+    app.post('/order', verifyJWT, async (req, res) => {
       const orderData = req.body;
       const result = await orderCollection.insertOne(orderData)
       res.send(orderData)
     })
-    app.get('/my-order/:email', async (req, res) => {
+
+
+    app.get('/my-order/:email',verifyJWT, async (req, res) => {
       const email = req.params.email;
       const result = await orderCollection.find({ userEmail: email }).toArray()
       res.send(result)
@@ -394,11 +405,36 @@ app.patch('/order-status/:id', async (req, res) => {
       res.send(result)
     })
 
-    app.get('/meals', async (req, res) => {
-      const result = await mealCollections.find().toArray()
-      res.send(result)
-    })
-    app.get('/meals/:id', async (req, res) => {
+    
+app.get('/meals',verifyJWT, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1; // default 1
+    const limit = parseInt(req.query.limit) || 10; // default 10
+    const skip = (page - 1) * limit; // skip previous pages
+
+    // মোট meals
+    const totalMeals = await mealCollections.countDocuments();
+
+    // Current page এর meals fetch
+    const meals = await mealCollections.find()
+      .skip(skip)
+      .limit(limit)
+      .toArray();
+
+    res.send({
+      meals,
+      totalMeals,
+      totalPages: Math.ceil(totalMeals / limit),
+      currentPage: page
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: 'Server Error' });
+  }
+});
+
+
+    app.get('/meals/:id', verifyJWT, async (req, res) => {
       const id = req.params.id;
       const result = await mealCollections.findOne({ _id: new ObjectId(id) })
       res.send(result)
@@ -459,7 +495,7 @@ app.patch('/meals/:id', verifyJWT, async (req, res) => {
     })
 
     // payment
-    app.post('/create-checkout-session', async (req, res) => {
+    app.post('/create-checkout-session', verifyJWT, async (req, res) => {
       const paymentInfo = req.body;
       const session = await stripe.checkout.sessions.create({
         line_items: [
