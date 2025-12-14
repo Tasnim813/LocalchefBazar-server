@@ -68,6 +68,29 @@ async function run() {
      const roleRequestsCollection = db.collection("roleRequests");
 
 
+     app.get('/admin-statistics', verifyJWT, async (req, res) => {
+  try {
+    const usersCount = await usersCollection.countDocuments()
+    const payments = await paymentCollection.find().toArray()
+    const orders = await orderCollection.find().toArray()
+
+    const totalPayments = Math.floor(payments.reduce((sum, p) => sum + (p.price || 0), 0))
+    const ordersPending = orders.filter(o => o.orderStatus === 'pending').length
+    const ordersDelivered = orders.filter(o => o.orderStatus === 'delivered').length
+
+    res.send({
+      totalUsers: usersCount,
+      totalPayments,
+      ordersPending,
+      ordersDelivered,
+    })
+  } catch (err) {
+    console.error(err)
+    res.status(500).send({ error: 'Failed to fetch statistics' })
+  }
+})
+
+
 // POST role request (Be a Chef / Be an Admin)
 app.post('/role-requests', verifyJWT, async (req, res) => {
   try {
@@ -171,6 +194,32 @@ app.get('/users', verifyJWT, async (req, res) => {
 
 
    //  user api
+   app.get('/users/role/:email',verifyJWT,async(req,res)=>{
+    const email=req.params.email;
+    const result=await usersCollection.findOne({email})
+    res.send({role:result?.role})
+   })
+
+   // Status fetch করার API
+app.get('/users/status/:email',verifyJWT,  async (req, res) => {
+  try {
+    const email = req.params.email
+    if (!email) return res.status(400).send({ error: 'Email is required' })
+
+    const user = await usersCollection.findOne({ email })
+    if (!user) return res.status(404).send({ error: 'User not found' })
+
+    // Send status
+    res.status(200).send({ status: user.status || 'active' }) // default active
+  } catch (err) {
+    console.error('Error fetching user status:', err)
+    res.status(500).send({ error: 'Internal Server Error' })
+  }
+})
+
+
+
+
          app.post('/users',async(req,res)=>{
   const userData=req.body;
   userData.created_at= new Date().toISOString()
@@ -237,6 +286,72 @@ app.get('/my-review/:email', async (req, res) => {
 
   res.send(result);
 });
+
+// UPDATE review by id
+app.put('/my-review/:id', verifyJWT, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { comment, rating } = req.body;
+
+    if (!comment && !rating) {
+      return res.status(400).send({ error: 'Nothing to update' });
+    }
+
+    const review = await reviewCollection.findOne({ _id: new ObjectId(id) });
+    if (!review) {
+      return res.status(404).send({ error: 'Review not found' });
+    }
+
+    // Verify ownership
+    if (review.reviewerEmail !== req.tokenEmail) {
+      return res.status(403).send({ error: 'Forbidden. You cannot edit this review.' });
+    }
+
+    const updatedData = {};
+    if (comment) updatedData.comment = comment;
+    if (rating) updatedData.rating = rating;
+
+    const result = await reviewCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updatedData }
+    );
+
+    res.send({ message: 'Review updated successfully', result });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ error: 'Server error' });
+  }
+});
+
+
+// DELETE review by id
+app.delete('/my-review/:id', verifyJWT, async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    // Optional: check if the review belongs to the logged-in user
+    const review = await reviewCollection.findOne({ _id: new ObjectId(id) });
+    if (!review) {
+      return res.status(404).send({ error: 'Review not found' });
+    }
+
+    // Verify ownership
+    if (review.reviewerEmail !== req.tokenEmail) {
+      return res.status(403).send({ error: 'Forbidden. You cannot delete this review.' });
+    }
+
+    const result = await reviewCollection.deleteOne({ _id: new ObjectId(id) });
+    if (result.deletedCount > 0) {
+      res.send({ message: 'Review deleted successfully' });
+    } else {
+      res.status(500).send({ error: 'Failed to delete review' });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ error: 'Server error' });
+  }
+});
+
 
   //  favorite
 app.post('/favorite', async (req, res) => {
