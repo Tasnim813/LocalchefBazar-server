@@ -352,6 +352,11 @@ app.delete('/my-review/:id', verifyJWT, async (req, res) => {
   }
 });
 
+// app.get('/review',async(req,res)=>{
+//   const result=await reviewCollection.find().toArray()
+//   res.send(result)
+// })
+
 
   //  favorite
 app.post('/favorite', async (req, res) => {
@@ -544,6 +549,19 @@ app.patch('/meals/:id', verifyJWT, async (req, res) => {
     res.status(500).send({ message: 'Failed to update meal' })
   }
 })
+
+
+// GET 6 meals for Home Page
+app.get('/home-meals', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 6; // default 6
+    const meals = await mealCollections.find({}).limit(limit).toArray();
+    res.send(meals);
+  } catch (err) {
+    console.error("Home Meals API Error:", err);
+    res.status(500).send({ message: 'Failed to fetch home meals', error: err.message });
+  }
+});
 
 
     // meal here
