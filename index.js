@@ -352,10 +352,10 @@ app.delete('/my-review/:id', verifyJWT, async (req, res) => {
   }
 });
 
-// app.get('/review',async(req,res)=>{
-//   const result=await reviewCollection.find().toArray()
-//   res.send(result)
-// })
+app.get('/review',async(req,res)=>{
+  const result=await reviewCollection.find().toArray()
+  res.send(result)
+})
 
 
   //  favorite
