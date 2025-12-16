@@ -359,13 +359,14 @@ app.get('/review',async(req,res)=>{
 
 
   //  favorite
+// favorite
 app.post('/favorite', async (req, res) => {
   try {
     const favoriteData = req.body;
 
     // Check if this meal already exists for this user
     const existing = await favoriteCollection.findOne({
-      email: favoriteData.email,
+      email: favoriteData.email, // frontend থেকে email পাঠানো হবে
       mealId: favoriteData.mealId
     });
 
@@ -383,11 +384,12 @@ app.post('/favorite', async (req, res) => {
   }
 });
 
-    app.get('/favorite/:email',async(req,res)=>{
-      const email=req.params.email;
-      const result= await favoriteCollection.find({email}).toArray()
-      res.send(result)
-    })
+app.get('/favorite/:email', async (req, res) => {
+  const email = req.params.email;
+  const result = await favoriteCollection.find({ email }).toArray();
+  res.send(result);
+});
+
 
     app.delete('/favorite/:id',async(req,res)=>{
        try {
@@ -474,7 +476,7 @@ app.patch('/order-status/:id', async (req, res) => {
     })
 
     
-app.get('/meals',verifyJWT, async (req, res) => {
+app.get('/meals', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1; // default 1
     const limit = parseInt(req.query.limit) || 10; // default 10
@@ -502,7 +504,7 @@ app.get('/meals',verifyJWT, async (req, res) => {
 });
 
 
-    app.get('/meals/:id', verifyJWT, async (req, res) => {
+    app.get('/meals/:id',  async (req, res) => {
       const id = req.params.id;
       const result = await mealCollections.findOne({ _id: new ObjectId(id) })
       res.send(result)
