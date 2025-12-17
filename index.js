@@ -22,7 +22,7 @@ app.use(
     origin: [
       'http://localhost:5173',
       'http://localhost:5174',
-      'https://b12-m11-session.web.app',
+      'https://localchefbazar-client.vercel.app',
     ],
     credentials: true,
     optionSuccessStatus: 200,
@@ -608,30 +608,7 @@ app.get('/home-meals', async (req, res) => {
       res.send({ url: session.url })
     });
 
-    // app.post('/payment-success', async (req, res) => {
-    //   const { sessionId } = req.body
-    //   const session = await stripe.checkout.sessions.retrieve(sessionId);
-    //   const order = await orderCollection.findOne({
-    //     _id: new ObjectId(session.metadata.orderId)
-    //   })
-    //   const payment = await paymentCollection.findOne({ transactionId: session.payment_intent })
-    //   if (session.status == 'complete' && order && !payment) {
-    //     // save order data in db
-    //     const orderInfo = {
-    //       orderId: session.metadata.orderId,
-    //       transactionId: session.payment_intent,
-    //       customer:session.metadata.customer,
-    //       status: 'pending',
-    //       name: order.mealName,
-    //       price: session.amount_total / 100,
-    //       quantity: 1,
-    //       orderTime: order.orderTime,
-    //       paymentStatus: 'paid',
-    //     }
-    //     const result = await paymentCollection.insertOne(orderInfo)
-    //   }
-    //   res.send(order)
-    // })
+   
 
 app.post('/payment-success', async (req, res) => {
   try {
@@ -723,8 +700,8 @@ app.post('/payment-success', async (req, res) => {
 
 
 
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    // await client.db("admin").command({ ping: 1 });
+    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
 
     // await client.close();
