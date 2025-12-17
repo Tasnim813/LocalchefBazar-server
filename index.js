@@ -601,8 +601,8 @@ app.get('/home-meals', async (req, res) => {
           customer: paymentInfo?.customer.email,
 
         },
-        success_url: `http://localhost:5173/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `http://localhost:5173/dashboard/my-orders`
+        success_url: `https://localchefbazar-client.vercel.app/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `https://localchefbazar-client.vercel.app/dashboard/my-orders`
       });
 
       res.send({ url: session.url })
