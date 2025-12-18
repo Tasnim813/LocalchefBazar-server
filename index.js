@@ -63,7 +63,7 @@ async function run() {
     const orderCollection = db.collection('order')
     const paymentCollection = db.collection('payment')
     const usersCollection=db.collection('users')
-    const mealCollection = db.collection('meal')
+  
      const reviewCollection = db.collection("reviews");
      const roleRequestsCollection = db.collection("roleRequests");
 
@@ -566,16 +566,7 @@ app.get('/home-meals', async (req, res) => {
 });
 
 
-    // meal here
-    app.get('/meal', async (req, res) => {
-      const result = await mealCollection.find().toArray()
-      res.send(result)
-    })
-    app.get('/meal/:id', async (req, res) => {
-      const id = req.params.id;
-      const result = await mealCollection.findOne({ _id: new ObjectId(id) })
-      res.send(result)
-    })
+ 
 
     // payment
     app.post('/create-checkout-session', verifyJWT, async (req, res) => {
